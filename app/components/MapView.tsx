@@ -2,26 +2,36 @@
 
 import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet';
 import { LatLngExpression } from 'leaflet';
-import { Course } from '../_data/courses';
-
-// ✅ 새로 추가
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
-// 기본 아이콘 경로 설정
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x.src,
   iconUrl: markerIcon.src,
   shadowUrl: markerShadow.src,
 });
 
+type Coordinate = { lat: number; lng: number };
+
+export type Course = {
+  id: number;
+  title: string;
+  description: string;
+  distanceKm: number | null;
+  estimatedMinutes: number | null;
+  level: 'EASY' | 'NORMAL' | 'HARD';
+  region: string | null;
+  tags: string[];
+  path: Coordinate[];
+};
+
 type MapViewProps = {
   courses: Course[];
-  selectedCourseId?: string;
-  onSelectCourse?: (id: string) => void;
+  selectedCourseId?: number;
+  onSelectCourse?: (id: number) => void;
 };
 
 export default function MapView({
@@ -29,7 +39,6 @@ export default function MapView({
   selectedCourseId,
   onSelectCourse,
 }: MapViewProps) {
-  // 기본 중앙 위치: 서울 시청 근처
   const defaultCenter: LatLngExpression = [37.5665, 126.978];
 
   const selectedCourse =
@@ -47,7 +56,6 @@ export default function MapView({
       scrollWheelZoom={true}
       style={{ width: '100%', height: '100%' }}
     >
-      {/* OSM 기본 타일 */}
       <TileLayer
         attribution='&copy; OpenStreetMap contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -61,8 +69,6 @@ export default function MapView({
           p.lng,
         ]);
 
-        const start = positions[0];
-
         return (
           <Polyline
             key={course.id}
@@ -70,8 +76,7 @@ export default function MapView({
             pathOptions={{
               weight: course.id === selectedCourseId ? 6 : 4,
             }}
-          >
-          </Polyline>
+          />
         );
       })}
 
@@ -93,7 +98,9 @@ export default function MapView({
             <Popup>
               <div className="text-sm">
                 <div className="font-semibold">{course.title}</div>
-                <div>{course.distanceKm} km · {course.region}</div>
+                <div>
+                  {course.distanceKm ?? '?'} km · {course.region ?? '지역 미입력'}
+                </div>
               </div>
             </Popup>
           </Marker>

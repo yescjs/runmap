@@ -2,15 +2,17 @@
 
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { Coordinate } from '../../components/PathEditorMap';
 
-// PathEditorMap은 Leaflet를 쓰므로 ssr: false
 const PathEditorMap = dynamic(
   () => import('../../components/PathEditorMap'),
   { ssr: false },
 );
 
 export default function NewCoursePage() {
+  const router = useRouter();
+
   const [title, setTitle] = useState('');
   const [region, setRegion] = useState('');
   const [description, setDescription] = useState('');
@@ -20,8 +22,9 @@ export default function NewCoursePage() {
   const [tagText, setTagText] = useState('야간좋음,강변,초보추천');
   const [path, setPath] = useState<Coordinate[]>([]);
   const [resultJson, setResultJson] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!title.trim()) {
@@ -42,16 +45,41 @@ export default function NewCoursePage() {
       title,
       region,
       description,
-      distanceKm: Number(distanceKm) || null,
-      estimatedMinutes: Number(estimatedMinutes) || null,
+      distanceKm: distanceKm ? Number(distanceKm) : null,
+      estimatedMinutes: estimatedMinutes ? Number(estimatedMinutes) : null,
       level,
       tags,
       path,
     };
 
-    console.log('새 코스 payload:', payload);
     setResultJson(JSON.stringify(payload, null, 2));
-    alert('콘솔과 아래 JSON 영역에서 payload를 확인하세요!');
+    setIsSubmitting(true);
+
+    try {
+      const res = await fetch('/api/courses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error('POST /api/courses error:', data);
+        alert('저장 중 오류가 발생했습니다.');
+        return;
+      }
+
+      const data = await res.json();
+      console.log('생성된 코스 ID:', data.id);
+
+      alert('코스가 저장되었습니다.');
+      router.push('/');
+    } catch (err) {
+      console.error(err);
+      alert('네트워크 오류가 발생했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -174,9 +202,10 @@ export default function NewCoursePage() {
             <div className="pt-2">
               <button
                 type="submit"
-                className="w-full bg-blue-600 text-white text-sm font-semibold py-2 rounded hover:bg-blue-700"
+                className="w-full bg-blue-600 text-white text-sm font-semibold py-2 rounded hover:bg-blue-700 disabled:opacity-60"
+                disabled={isSubmitting}
               >
-                이 정보로 코스 JSON 생성하기
+                {isSubmitting ? '저장 중...' : '코스 저장하기'}
               </button>
             </div>
           </form>

@@ -1,19 +1,51 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { mockCourses } from './_data/courses';
+
+// API에서 받아올 타입 정의
+type Coordinate = { lat: number; lng: number };
+
+type Course = {
+  id: number;
+  title: string;
+  description: string;
+  distanceKm: number | null;
+  estimatedMinutes: number | null;
+  level: 'EASY' | 'NORMAL' | 'HARD';
+  region: string | null;
+  tags: string[];
+  path: Coordinate[];
+};
 
 const MapView = dynamic(() => import('./components/MapView'), {
   ssr: false,
 });
 
 function HomeClient() {
-  const [selectedId, setSelectedId] = useState<string | undefined>(
-    mockCourses[0]?.id,
-  );
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [selectedId, setSelectedId] = useState<number | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
 
-  const selectedCourse = mockCourses.find((c) => c.id === selectedId);
+  const selectedCourse = courses.find((c) => c.id === selectedId);
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const res = await fetch('/api/courses');
+        const data: Course[] = await res.json();
+        setCourses(data);
+        if (data.length > 0) {
+          setSelectedId(data[0].id);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCourses();
+  }, []);
 
   return (
     <main className="flex h-screen">
@@ -35,7 +67,20 @@ function HomeClient() {
         </header>
 
         <div className="flex-1 overflow-y-auto">
-          {mockCourses.map((course) => (
+          {loading && (
+            <div className="p-4 text-sm text-gray-500">코스를 불러오는 중...</div>
+          )}
+
+          {!loading && courses.length === 0 && (
+            <div className="p-4 text-sm text-gray-500">
+              아직 등록된 코스가 없습니다.
+              <br />
+              상단의 <span className="font-semibold">+ 새 코스</span> 버튼을 눌러
+              첫 코스를 등록해보세요.
+            </div>
+          )}
+
+          {courses.map((course) => (
             <button
               key={course.id}
               onClick={() => setSelectedId(course.id)}
@@ -50,7 +95,11 @@ function HomeClient() {
                 </span>
               </div>
               <div className="text-xs text-gray-500">
-                {course.region} · {course.distanceKm}km · {course.estimatedMinutes}분
+                {course.region ?? '지역 미입력'} ·{' '}
+                {course.distanceKm ? `${course.distanceKm}km` : '거리 미입력'} ·{' '}
+                {course.estimatedMinutes
+                  ? `${course.estimatedMinutes}분`
+                  : '시간 미입력'}
               </div>
               <div className="mt-1 text-xs text-gray-600 line-clamp-2">
                 {course.description}
@@ -80,9 +129,9 @@ function HomeClient() {
       {/* 오른쪽: 지도 */}
       <section className="flex-1">
         <MapView
-          courses={mockCourses}
+          courses={courses}
           selectedCourseId={selectedId}
-          onSelectCourse={setSelectedId}
+          onSelectCourse={(id) => setSelectedId(id)}
         />
       </section>
     </main>
